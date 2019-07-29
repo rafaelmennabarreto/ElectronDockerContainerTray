@@ -1,4 +1,5 @@
 const { spawn } = require('child_process');
+const StatusService = require('../service/statusService');
 
 const DockerContainer = {
   getRunningDockerContainers: async () => {
@@ -18,7 +19,7 @@ function getContainerData(containersName) {
   const containers = [];
 
   var retorno = new Promise(res => {
-    containersName.stdout.once('data', data => {
+    containersName.stdout.on('data', data => {
       const itensArray = data.toString().split('$%');
       var id = 0;
 
@@ -29,7 +30,10 @@ function getContainerData(containersName) {
           containers.push(containerToItem(item));
         }
       });
-      res(containers);
+    });
+
+    containersName.on('close', () => {
+      containers.length > 0 ? res(containers) : res([noContainContainer()]);
     });
   });
 
@@ -37,17 +41,60 @@ function getContainerData(containersName) {
 }
 
 function containerToItem(container) {
-  console.log(container);
+  const containerName = container.Label;
 
-  return {
+  const retorno = {
     posicao: container.posicao,
     id: container.Id,
     label: container.Label,
+    type: 'submenu',
+    status: StatusService.getStatus(container.Status),
+    submenu: [
+      {
+        label: 'Iniciar',
+        type: 'radio',
+        click: item => {
+          runStopContainer(containerName, 'start');
+        },
+      },
+      {
+        label: 'Parar',
+        type: 'radio',
+        click: item => {
+          runStopContainer(containerName, 'stop');
+        },
+      },
+    ],
+  };
+
+  return retorno;
+}
+
+async function runStopContainer(containerName, command) {
+  const container = spawn('docker', [command, containerName]);
+  const valor = [];
+
+  var retorno = new Promise(resp => {
+    container.stdout.on('data', data => {
+      valor.push(data.toString());
+    });
+
+    container.stdout.on('close', () => {
+      resp(command);
+    });
+  });
+
+  return retorno;
+}
+
+function noContainContainer() {
+  return {
+    posicao: 1,
+    id: 1,
+    label: 'Sem containers',
     type: 'normal',
-    status: container.Status,
-    click: item => {
-      console.log(item.label);
-    },
+    status: 'stop',
+    click: item => {},
   };
 }
 

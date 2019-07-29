@@ -6,7 +6,7 @@ let tray = null;
 const itens = [
   {
     posicao: 9999,
-    label: 'Sair1',
+    label: 'Fechar',
     type: 'normal',
     status: 'stoped',
     click: item => {
@@ -18,7 +18,7 @@ const itens = [
 app.on('ready', async () => {
   tray = new Tray('./assets/trayIcon/TrayIconTemplate.png');
 
-  const containers = await DockerContainer.getRunningDockerContainers();
+  const containers = await DockerContainer.getRunningDockerContainers(tray);
   containers.forEach(item => {
     itens.push(item);
   });
