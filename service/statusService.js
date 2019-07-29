@@ -6,9 +6,7 @@ const StatusService = {
       return 'start';
     }
 
-    if (texto.match('Exited')) {
-      return 'stop';
-    }
+    return 'stop';
   },
 };
 

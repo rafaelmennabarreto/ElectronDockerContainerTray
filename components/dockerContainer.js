@@ -1,5 +1,6 @@
 const { spawn } = require('child_process');
 const StatusService = require('../service/statusService');
+const NotificationService = require('../service/notificationService');
 
 const DockerContainer = {
   getRunningDockerContainers: async () => {
@@ -42,6 +43,7 @@ function getContainerData(containersName) {
 
 function containerToItem(container) {
   const containerName = container.Label;
+  const started = StatusService.getStatus(container.Status) === 'start';
 
   const retorno = {
     posicao: container.posicao,
@@ -53,15 +55,21 @@ function containerToItem(container) {
       {
         label: 'Iniciar',
         type: 'radio',
-        click: item => {
-          runStopContainer(containerName, 'start');
+        checked: started,
+        click: async item => {
+          const comando = 'start';
+          await runStopContainer(containerName, comando);
+          verifyContainerIsRunning(containerName, comando);
         },
       },
       {
         label: 'Parar',
         type: 'radio',
-        click: item => {
-          runStopContainer(containerName, 'stop');
+        checked: !started,
+        click: async item => {
+          const comando = 'stop';
+          await runStopContainer(containerName, comando);
+          verifyContainerIsRunning(containerName, comando);
         },
       },
     ],
@@ -70,21 +78,79 @@ function containerToItem(container) {
   return retorno;
 }
 
+async function verifyContainerIsRunning(containerName, command) {
+  const result = spawn('docker', [
+    'ps',
+    '--filter',
+    `Name=${containerName}`,
+    '--format',
+    '"{{.Names}}"',
+  ]);
+
+  const retorno = new Promise(resp => {
+    const containerReturnName = [];
+
+    result.stdout.on('data', data => {
+      containerReturnName.push(data.toString());
+    });
+
+    result.stdout.on('close', item => {
+      const messageItem = getContainerMessage(containerName, command);
+      NotificationService.sendNotification(
+        messageItem.title,
+        messageItem.texto
+      );
+    });
+
+    result.stdout.on('error', item => {
+      console.log('erro');
+    });
+  });
+
+  return retorno;
+}
+
 async function runStopContainer(containerName, command) {
   const container = spawn('docker', [command, containerName]);
   const valor = [];
 
-  var retorno = new Promise(resp => {
+  const retorno = new Promise(resp => {
     container.stdout.on('data', data => {
       valor.push(data.toString());
     });
 
-    container.stdout.on('close', () => {
+    container.stdout.on('close', async () => {
       resp(command);
     });
   });
 
   return retorno;
+}
+
+function getContainerMessage(containerName, command) {
+  const messageItem = MessageService.getMessageStatusContainer(
+    containerName,
+    command
+  );
+
+  if (command === 'start') {
+    const title = containerReturnName.length > 0 ? messageItem.title : 'Error';
+
+    const message =
+      containerReturnName.length > 0
+        ? messageItem.text
+        : 'Error starting docker container';
+  } else {
+    const title =
+      containerReturnName.length === 0 ? messageItem.title : 'Error';
+
+    const message =
+      containerReturnName.length === 0
+        ? messageItem.text
+        : 'Error stopping docker container';
+  }
+
+  return { title: title, texto: message };
 }
 
 function noContainContainer() {

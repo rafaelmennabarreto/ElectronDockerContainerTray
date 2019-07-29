@@ -1,4 +1,4 @@
-const { app, Menu, Tray } = require('electron');
+const { app, Menu, Tray, Notification } = require('electron');
 const DockerContainer = require('./components/dockerContainer');
 
 let tray = null;
@@ -27,6 +27,6 @@ app.on('ready', async () => {
     itens.sort((a, b) => a.posicao - b.posicao)
   );
 
-  tray.setToolTip('Docker Containers');
+  tray.setToolTip('Docker Tray Containers');
   tray.setContextMenu(contextMenu);
 });
